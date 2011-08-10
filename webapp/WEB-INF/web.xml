@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app>
+    
+    <!-- CodeGlide servlet description -->
+    <display-name>Neoson</display-name>
+    <description>Mighty Neoson</description>
+
+    <servlet>
+    <servlet-name>default</servlet-name>
+    <servlet-class>org.eclipse.jetty.servlet.DefaultServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+    <init-param>
+      <param-name>aliases</param-name>
+      <param-value>true</param-value>
+    </init-param>
+  </servlet>
+  
+    <welcome-file-list>
+        <welcome-file>index.html</welcome-file>
+    </welcome-file-list>
+
+</web-app>

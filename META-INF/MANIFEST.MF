@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Neoson
+Bundle-SymbolicName: cloud.core.webapp.neoson
+Bundle-Version: 1.0.0.qualifier
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Web-ContextPath: /neoson
+Jetty-WarFolderPath: webapp
+Service-Component: OSGI-INF/webapp-provider.xml
+Bundle-ActivationPolicy: lazy

@@ -1,0 +1,217 @@
+<html>
+
+  <head>
+    <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js'></script>
+    <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.15/jquery-ui.min.js'></script>
+    <script type='text/javascript' src='js/jsonview_content.js'></script>
+    <script type='text/javascript' src='js/jquery.editinplace.js'></script>
+    <script type='text/javascript' src='js/neoson_field_handlers.js'></script>
+
+    <style>
+      li {
+        padding: 2px;
+      } 
+
+      input.b_left {
+        float: left;
+      }
+      
+      input.b_right {
+        float: right;
+      }
+
+      .editable {
+        border: 1px solid #aaa;
+        background-color: #ddd;
+        padding: 1px;
+      }
+    </style>
+
+    <script>
+        var HOST;
+        var CURRENT_JSON_OBJECT;
+        var CURRENT_FORMATTER;
+
+        var SYNCHRONIZE_URI = "/utils/synchronize";
+        var REFRESH_ROUTES_URI = "/utils/refresh_routes";
+
+        $(document).ready(function() {
+            init();
+            clearModifierButtons();
+            clearServerResponse();    
+        });
+
+        function init() {
+            hostInput = $('#neohost').attr('disabled', 'true');
+            HOST = hostInput.val();
+            hostInput.disabled = true;
+        }
+
+        function clearModifierButtons() {
+            $('#record-modifiers').html('');
+        }
+        
+        function clearServerResponse() {
+            $('#server-response').html('');
+            $('#server-response').hide();
+        }
+
+        function enableForm(enabled) {
+            form = document.getElementById("form");
+            inputs = form.elements;
+            for (i=0; i<inputs.length; i++) {
+	        inputs[i].disabled = !enabled;
+            }
+        }
+
+        function list_records(object, wantedFields) {
+            enableForm(false);
+            clearModifierButtons();
+            clearServerResponse();
+            $.get(HOST + "/" + object, 
+	        function(data) {
+	           data = extractData(data);
+                   CURRENT_FORMATTER = displayObject(object, data.text, data.fnName, wantedFields, null);
+                   enableForm(true);
+	        }, 
+	       "html"
+            );
+        }
+
+        function show_record(object, uuid) {
+            var fieldHandler = new FieldHandler();
+            var recordURL = HOST + "/" + object + "/" + uuid;
+
+            enableForm(false);
+
+            $.get(recordURL, function(data) { // make request to GET:/:ID/:UUID
+	            data = extractData(data);
+                    CURRENT_FORMATTER = displayObject(object, data.text, data.fnName, null, fieldHandler);
+                    CURRENT_JSON_OBJECT = CURRENT_FORMATTER.getJSONObject();
+                    CURRENT_JSON_OBJECT.modifiedProps = {};
+                    CURRENT_JSON_OBJECT.putBackURL = recordURL; 
+                    CURRENT_JSON_OBJECT.postNewURL = HOST + "/" + object;
+                    enableForm(true);
+
+	            // Trigger any (form) callbacks registered by field handlers
+                   fieldHandler.objectDisplayedCallbacks.forEach(function(callback) { callback(); });
+                   fieldHandler.objectDisplayedCallbacks.forEach(function(callback) { callback(); });
+	        }, 
+	        "html"
+            );
+           
+            // Show PUT/POST/DELETE buttons for record
+            $('#record-modifiers').html(
+               '<input class="b_right" type="button" value="HTTP PUT it back" onClick="HTTP_PUT_IT_BACK();">' + 
+               '<input class="b_right" type="button" value="HTTP POST it new as new" onClick="HTTP_POST_IT_IN();">'
+            );
+        }
+
+        function SYNC_AND_REFRESH() {
+            alert("Calling /utils/synchronize & /utils/refresh_routes ...");
+            $.ajax({
+                url: HOST + SYNCHRONIZE_URI,
+                type: 'GET',
+                complete: function(data) {
+                    $.ajax({
+                        url: HOST + REFRESH_ROUTES_URI,
+                        type: 'GET',
+                        complete: function(data) {
+                            alert("Done synchronizing and refreshing.");
+                        }});
+                },
+            });
+        }
+
+        function HTTP_PUT_IT_BACK() {
+            modifiedProps = CURRENT_JSON_OBJECT.modifiedProps;
+            modifiedKeys = [];
+            for (key in modifiedProps) modifiedKeys.push(key);
+            if (modifiedKeys.length == 0) {
+                alert("Nothing modified.");
+                return;
+            };
+            if (!confirm("You are MODIFYING the following properties:\n\n--\n" + modifiedKeys + "\n--\n\nProceed?")) return;
+
+            jsonText = JSON.stringify(CURRENT_JSON_OBJECT.modifiedProps, null);
+            console.log("PUTTING into [" + CURRENT_JSON_OBJECT.putBackURL + "] with JSON: " + jsonText + " ......");
+            $.ajax({
+                url: CURRENT_JSON_OBJECT.putBackURL,
+                type: 'PUT',
+                //contentType: 'application/json',
+                data: jsonText,
+                dataType: 'json',
+                complete: function(data) {
+                    $('#server-response').html("<b>Server Response</b>:<br>" + data.responseText);
+                    $('#server-response').show();
+                    SYNC_AND_REFRESH();
+                },
+            });
+        }
+
+        function HTTP_POST_IT_IN() {
+            modifiedProps = CURRENT_JSON_OBJECT.modifiedProps;
+            modifiedKeys = [];
+            for (key in modifiedProps) modifiedKeys.push(key);
+            if (modifiedKeys.length == 0) {
+                alert("Nothing modified.");
+                return;
+            };
+            if (!confirm("WARNING: You are POSTING back IN this object as a NEW object with the following modified properties:\n\n--\n" 
+                + modifiedKeys + "\n--\n\nProceed?")) return;
+
+            // Create 'new' object
+            newObject = {}
+            for (key in CURRENT_JSON_OBJECT) newObject[key] = CURRENT_JSON_OBJECT[key];
+            for (key in CURRENT_JSON_OBJECT.modifiedProps) newObject[key] = CURRENT_JSON_OBJECT.modifiedProps[key];
+            // Remove unwanted/added fields
+            delete newObject['modifiedProps'];
+            delete newObject['io_uuid'];
+            delete newObject['putBackURL'];
+            delete newObject['postNewURL'];
+
+            jsonText = JSON.stringify(newObject, null);
+            $.ajax({
+                url: CURRENT_JSON_OBJECT.postNewURL,
+                type: 'POST',
+                //contentType: 'application/json',
+                data: jsonText,
+                dataType: 'json',
+                complete: function(data) {
+                    $('#server-response').html("<b>Server Response</b>:<br>" + JSON.stringify(data, null));
+                    $('#server-response').show();
+                },
+            });
+        }
+    </script>
+  </head>
+
+  <body style="font-family: monospace;">
+
+    <div id="form-div">
+
+      <input id="neohost" class="b_left" type="text" value="http://localhost:8080" onChange="init();">
+
+      <form id="form">
+	<input class="b_left" type="button" value="Document" onclick="list_records('document', ['io_name','io_format','io_uuid']);">
+	<input class="b_left" type="button" value="Version" onclick="list_records('version', ['io_uuid','io_file_name','io_size','io_number']);">
+	<input class="b_left" type="button" value="Operation" onclick="list_records('operation', ['io_uuid','io_name','io_route']);">
+	<input class="b_left" type="button" value="Source" onclick="list_records('source', ['io_uuid','io_name']);">
+	<input class="b_left" type="button" value="Operation-Source" onclick="list_records('operation-source', ['io_uuid','io_name','io_operation','io_source']);">
+	<input class="b_left" type="button" value="Test" onclick="list_records('test', ['io_uuid','io_description']);">
+      </form>
+
+    </div>
+
+    <div style="clear:both; padding-top: 10px;"></div>
+    <div id="neoson" style="height: 70%; overflow: auto; background-color: #eee; padding: 10px; border: 1px dashed #aaa;"></div>
+    <div style="clear:both; padding-top: 10px;"></div>
+
+    <div id="record-modifiers" style="height: 5%;"></div>
+
+    <div style="clear:both; padding-top: 10px;"></div>
+    <div id="server-response" style="height: 10%; overflow: auto; background-color: #eee; padding: 10px; border: 1px dashed #aaa;"></div>
+
+  </body>
+
+</html>
