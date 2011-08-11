@@ -193,6 +193,7 @@
       <input id="neohost" class="b_left" type="text" value="http://localhost:8080" onChange="init();">
 
       <form id="form">
+    <input class="b_left" type="button" value="User" onclick="list_records('user', ['io_name','io_username','io_uuid']);">      
 	<input class="b_left" type="button" value="Document" onclick="list_records('document', ['io_name','io_format','io_uuid']);">
 	<input class="b_left" type="button" value="Version" onclick="list_records('version', ['io_uuid','io_file_name','io_size','io_number']);">
 	<input class="b_left" type="button" value="Operation" onclick="list_records('operation', ['io_uuid','io_name','io_route']);">

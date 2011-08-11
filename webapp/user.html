@@ -1,0 +1,40 @@
+<html>
+
+	<head>
+	   <title>Change user password</title>
+	   <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js'></script>
+	   <script type='text/javascript' src='https://raw.github.com/alexweber/jquery.sha256/master/jquery.sha256.min.js'></script>
+
+	   <script>
+	    function change() {
+	    	
+	    	var uuid = $('input[name="uuid"]').val();
+	        var passwd = $.sha256($('input[name="password"]')); //$('input[name="password"]').val();
+	    	console.log('Changing password for UUID '+uuid+' to '+passwd);
+	    	var data = '{ "io_password": "'+ passwd+'" }';
+	    	console.log('Data '+data);
+            $.ajax({
+                url: '/user/'+uuid,
+                type: 'PUT',
+                data: data,
+                dataType: 'json',
+                complete: function(res, status) {
+                    console.log('Status '+status);
+                	if(res.responseText === 'OK') {
+                		alert('Successfully updated password: '+res.responseText);
+                	}
+                	else {
+                        alert('Failed to update password: '+res.responseText);
+                	}
+                }
+            });
+	    }
+	   </script>
+	</head>
+	
+	<body>
+        UUID: <input type="text" name="uuid" maxlength="26"/>
+        Password: <input type="text" name="password"/> 	
+        <input type="button" value="Change it" onclick="change();">
+	</body>
+</html>
