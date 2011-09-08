@@ -1,0 +1,135 @@
+<html>
+
+    <head>
+       <title>Update source</title>
+       
+        <style>
+            #editor {
+		        position: absolute;
+		        width: 1280px;
+		        height: 640px;
+		    }
+        </style>       
+       
+       <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js'></script>
+       <script type='text/javascript' src='js/json2.js'></script>
+    </head>
+    <script>
+        
+        $(document).ready(function(){
+            var editor = ace.edit("editor");
+            editor.setTheme("ace/theme/twilight");
+            var RubyMode = require("ace/mode/ruby").Mode;
+            editor.getSession().setMode(new RubyMode());
+        	
+            $.ajax({
+                url: '/source',
+                type: 'GET',
+                complete: function(res, status) {
+                    console.log('Status '+status);
+                    var data = res.responseText;
+                    if(data !== '') {
+                        var objects = JSON.parse(data);
+                        // sort by name
+                        objects.sort(function(a, b) {
+                        	   var compA = a.io_name;
+                        	   var compB = b.io_name;
+                        	   return (compA < compB) ? -1 : (compA > compB) ? 1 : 0;
+                        });
+                        for(var i in objects) {
+                            //console.log('User '+JSON.stringify(users[i]));
+                            var obj = objects[i];
+                            var option = document.createElement('option');
+                            //console.log('User '+user.io_username);
+                            option.value = obj.io_uuid;
+                            option.text = obj.io_name;
+                            $('#source-select').append(option);
+                        }
+                    }
+                    else {
+                        alert('Unable to retrieve list of users. Is the server down or you are not signed in?');
+                    }
+                }
+            });
+            
+            $('#source-select').change(function(event){
+                var uuid = $(this).val();
+                console.log('Source '+uuid);
+                if(uuid) {
+	                $.ajax({
+	                    url: '/source/'+uuid,
+	                    type: 'GET',
+	                    complete: function(res, status) {
+	                        console.log('Status '+status);
+	                        var data = res.responseText;
+	                        if(data !== '') {
+	                            var obj = JSON.parse(data);
+	                            var code = obj.io_code[1];
+	                            //console.log(code);
+	                            editor.getSession().setValue(code);
+	                            //$('#editor').text(code);
+	                        }
+	                        else {
+	                            alert('Unable to retrieve source for: '+uuid);
+	                        }
+	                    }            	
+	                });
+                }
+                else {
+                	var msg = "# Select a source above and it's' code here will be displayed here";
+                	editor.getSession().setValue(msg);
+                }
+            });
+            
+            $('#update-source').click(function(event) {        
+            	var code = editor.getSession().getValue();
+            	var uuid = $('#source-select').val();
+                //console.log('Updating source '+uuid);
+                var jsData = { io_code: ["Ruby", code] }
+                var data = JSON.stringify(jsData); 
+                //console.log('Data '+data);
+                $.ajax({
+                    url: '/source/'+uuid,
+                    type: 'PUT',
+                    data: data,
+                    dataType: 'json',
+                    complete: function(res, status) {
+                        console.log('Source update status '+status);
+                        if(res.responseText === 'OK') {
+                            alert('Successfully updated source: '+res.responseText);
+                        }
+                        else {
+                            alert('Failed to update source: '+res.responseText);
+                        }
+                    }
+                });                
+            });
+
+        });     
+        
+    </script>
+    
+    <body>        
+        <h1>Edit Ruby Source</h1>
+        
+        <form id="update_source_form">
+          <div>
+                        
+            <div>
+                <select id='source-select'><option value="">Select a source</option></select>
+                &nbsp;&nbsp;<input type="button" value="Update" id="update-source"/> 
+            </div>
+            <br/>
+            <div id="editor"># Select a source above and it's' code here will be displayed here</div>
+            
+          </div>
+
+		<script src="js/ace.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/theme-twilight.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/mode-ruby.js" type="text/javascript" charset="utf-8"></script>
+		<!--
+        <script src="js/mode-javascript.js" type="text/javascript" charset="utf-8"></script>
+        -->
+        </form>
+    </body>
+</html>
